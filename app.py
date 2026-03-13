@@ -34,6 +34,7 @@ def predict():
         # Resize if image is too large (faster face detection)
         max_dimension = 800
         height, width = img.shape[:2]
+        scale = 1.0
         if max(height, width) > max_dimension:
             scale = max_dimension / max(height, width)
             img = cv2.resize(img, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
@@ -68,10 +69,11 @@ def predict():
         label = EMOTIONS[preds.argmax()]
         confidence = float(preds.max())
         
+        # Scale bounding box back to original image dimensions before returning
         return jsonify({
             'emotion': label,
             'confidence': round(confidence * 100, 2),
-            'box': [int(x), int(y), int(w), int(h)]
+            'box': [int(x / scale), int(y / scale), int(w / scale), int(h / scale)]
         })
         
     except Exception as e:
