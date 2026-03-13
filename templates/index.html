@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Emotion Lens AI</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>Emotion Lens AI</h1>
+            <p>Real-time facial expression analysis powered by Deep Learning</p>
+        </header>
+
+        <div class="tabs">
+            <button class="tab-btn active" data-tab="webcam-tab">Live Webcam</button>
+            <button class="tab-btn" data-tab="upload-tab">Upload Image</button>
+            <button class="tab-btn" data-tab="about-tab">About</button>
+        </div>
+
+        <div class="main-content">
+            <div class="view-panel">
+                <!-- Webcam Tab Content -->
+                <div id="webcam-tab" class="tab-content active">
+                    <div class="video-section">
+                        <div id="camera-placeholder" style="color: #94a3b8; text-align: center;">Camera is turned off
+                        </div>
+                        <video id="webcam" autoplay playsinline muted style="display: none;"></video>
+                        <div id="face-box" class="face-box" style="display: none;"></div>
+                    </div>
+                </div>
+
+                <!-- Upload Tab Content -->
+                <div id="upload-tab" class="tab-content">
+                    <div class="upload-section">
+                        <label for="file-upload" class="upload-dropzone" id="dropzone">
+                            <input type="file" id="file-upload" accept="image/*" hidden>
+                            <div class="upload-icon">📁</div>
+                            <p>Drag & Drop or <span>Click to Upload</span></p>
+                            <p class="sub-text">Supports JPG, PNG (Max 5MB)</p>
+                        </label>
+                        <div id="image-preview-container"
+                            style="display: none; flex-direction: column; align-items: center; padding: 1rem; width: 100%;">
+                            <button id="clear-image" class="btn"
+                                style="margin-bottom: 1rem; background: #ef4444; color: white; box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);">
+                                ✖ Clear Image
+                            </button>
+                            <img id="image-preview" src="" alt="Preview"
+                                style="max-height: 300px; width: auto; border-radius: 12px; object-fit: contain;">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- About Tab Content -->
+                <div id="about-tab" class="tab-content">
+                    <div class="about-section">
+                        <h2>Facial Emotion Recognition</h2>
+                        <p class="about-desc">This project detects human emotions from facial expressions using Deep
+                            Learning. It captures real-time video or uploaded images and processes them through a
+                            trained neural network.</p>
+
+                        <div class="about-grid">
+                            <div class="about-card">
+                                <h3>🛠️ Tech Stack</h3>
+                                <ul>
+                                    <li><strong>Backend:</strong> Python, Flask</li>
+                                    <li><strong>AI Model:</strong> TensorFlow, Keras</li>
+                                    <li><strong>Vision:</strong> OpenCV</li>
+                                    <li><strong>Frontend:</strong> HTML, CSS, JS</li>
+                                </ul>
+                            </div>
+
+                            <div class="about-card">
+                                <h3>👨‍💻 Developer</h3>
+                                <div class="dev-profile">
+                                    <div class="avatar">P</div>
+                                    <div class="dev-info">
+                                        <h4>Parth Nesadiya</h4>
+                                        <span>Project Creator</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-panel">
+                <div class="card emotion-card">
+                    <span class="label">Current Emotion</span>
+                    <div id="emotion-text">Scanning...</div>
+                    <div class="confidence-bar">
+                        <div id="confidence-fill"></div>
+                    </div>
+                    <div class="stats">
+                        <span>Confidence</span>
+                        <span id="confidence-text">0%</span>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <span class="label">System Status</span>
+                    <div id="status" style="display: flex; align-items: center; gap: 8px;">
+                        <div style="width: 8px; height: 8px; background: #22c55e; border-radius: 50%;"></div>
+                        AI Model Active
+                    </div>
+                    <p style="font-size: 0.85rem; color: #94a3b8; margin-top: 1rem;">
+                        Model: model_optimal.h5<br>
+                        Input Size: 48x48 Grayscale
+                    </p>
+                </div>
+
+                <div class="controls">
+                    <button id="toggle-cam" class="btn btn-primary">
+                        <span>Start Camera</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+
+</html>
