@@ -145,23 +145,42 @@ function updateUI(data) {
     if (data.box && isStreaming) {
         const [x, y, w, h] = data.box;
         
-        // Get video element's display dimensions
+        // Get the video element's position and size relative to its container
         const videoRect = video.getBoundingClientRect();
-        const videoWidth = videoRect.width;
-        const videoHeight = videoRect.height;
+        const containerRect = video.parentElement.getBoundingClientRect();
         
         // Get actual video stream dimensions
         const actualWidth = video.videoWidth;
         const actualHeight = video.videoHeight;
-
+        
+        // Calculate the displayed video dimensions (accounting for object-fit: contain)
+        const videoAspect = actualWidth / actualHeight;
+        const containerAspect = videoRect.width / videoRect.height;
+        
+        let displayWidth, displayHeight, offsetX, offsetY;
+        
+        if (videoAspect > containerAspect) {
+            // Video is wider - fit to width
+            displayWidth = videoRect.width;
+            displayHeight = videoRect.width / videoAspect;
+            offsetX = 0;
+            offsetY = (videoRect.height - displayHeight) / 2;
+        } else {
+            // Video is taller - fit to height
+            displayHeight = videoRect.height;
+            displayWidth = videoRect.height * videoAspect;
+            offsetX = (videoRect.width - displayWidth) / 2;
+            offsetY = 0;
+        }
+        
         // Calculate scale between actual video and displayed video
-        const scaleX = videoWidth / actualWidth;
-        const scaleY = videoHeight / actualHeight;
+        const scaleX = displayWidth / actualWidth;
+        const scaleY = displayHeight / actualHeight;
 
         faceBox.style.display = 'block';
-        // Since we send a mirrored image, coordinates are already correct for mirrored display
-        faceBox.style.left = `${x * scaleX}px`;
-        faceBox.style.top = `${y * scaleY}px`;
+        // Position relative to the container, accounting for video offset and mirroring
+        faceBox.style.left = `${offsetX + x * scaleX}px`;
+        faceBox.style.top = `${offsetY + y * scaleY}px`;
         faceBox.style.width = `${w * scaleX}px`;
         faceBox.style.height = `${h * scaleY}px`;
     } else {
