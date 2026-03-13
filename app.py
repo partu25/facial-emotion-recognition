@@ -2,14 +2,16 @@ import os
 import cv2
 import numpy as np
 from flask import Flask, render_template, request, jsonify
-from tensorflow.keras.models import load_model
-from tensorflow.keras.preprocessing.image import img_to_array
+import tensorflow as tf
 
 app = Flask(__name__)
 
-# Load the trained model
-MODEL_PATH = 'model_optimal.h5'
-model = load_model(MODEL_PATH)
+# Load the lightweight TFLite model instead of the massive H5 model
+MODEL_PATH = 'model_optimal.tflite'
+interpreter = tf.lite.Interpreter(model_path=MODEL_PATH)
+interpreter.allocate_tensors()
+input_details = interpreter.get_input_details()
+output_details = interpreter.get_output_details()
 
 # Emotion labels (standard FER2013 alphabetical order)
 EMOTIONS = ['Angry', 'Disgust', 'Fear', 'Happy', 'Neutral', 'Sad', 'Surprise']
@@ -41,12 +43,16 @@ def predict():
         roi_gray = cv2.resize(roi_gray, (48, 48), interpolation=cv2.INTER_AREA)
         
         # Preprocess for model
-        roi = roi_gray.astype('float') / 255.0
-        roi = img_to_array(roi)
-        roi = np.expand_dims(roi, axis=0)
+        roi = roi_gray.astype('float32') / 255.0
+        roi = np.expand_dims(roi, axis=-1) # Add channel dimension (48, 48, 1)
+        roi = np.expand_dims(roi, axis=0)  # Add batch dimension (1, 48, 48, 1)
+
         
-        # Predict
-        preds = model.predict(roi)[0]
+        # Predict using TFLite interpreter
+        interpreter.set_tensor(input_details[0]['index'], roi)
+        interpreter.invoke()
+        preds = interpreter.get_tensor(output_details[0]['index'])[0]
+        
         label = EMOTIONS[preds.argmax()]
         confidence = float(preds.max())
         
