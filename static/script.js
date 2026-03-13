@@ -144,18 +144,23 @@ function updateUI(data) {
 
     if (data.box && isStreaming) {
         const [x, y, w, h] = data.box;
-        const videoWidth = video.offsetWidth;
-        const videoHeight = video.offsetHeight;
+        
+        // Get video element's display dimensions
+        const videoRect = video.getBoundingClientRect();
+        const videoWidth = videoRect.width;
+        const videoHeight = videoRect.height;
+        
+        // Get actual video stream dimensions
         const actualWidth = video.videoWidth;
         const actualHeight = video.videoHeight;
 
-        // Calculate scale
+        // Calculate scale between actual video and displayed video
         const scaleX = videoWidth / actualWidth;
         const scaleY = videoHeight / actualHeight;
 
         faceBox.style.display = 'block';
-        // Adjust for mirrored video
-        faceBox.style.left = `${videoWidth - (x + w) * scaleX}px`;
+        // Since we send a mirrored image, coordinates are already correct for mirrored display
+        faceBox.style.left = `${x * scaleX}px`;
         faceBox.style.top = `${y * scaleY}px`;
         faceBox.style.width = `${w * scaleX}px`;
         faceBox.style.height = `${h * scaleY}px`;
