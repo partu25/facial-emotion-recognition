@@ -16,6 +16,9 @@ const placeholder = document.getElementById('camera-placeholder');
 let isStreaming = false;
 let stream = null;
 let predictionInterval = null;
+let recentPredictions = []; // Store recent predictions for smoothing
+const PREDICTION_HISTORY_SIZE = 3; // Average last 3 predictions
+const CONFIDENCE_THRESHOLD = 40; // Only show predictions above 40% confidence
 
 async function startCamera() {
     try {
@@ -49,6 +52,7 @@ function stopCamera() {
         isStreaming = false;
         toggleBtn.innerHTML = '<span>Start Camera</span>';
         clearInterval(predictionInterval);
+        recentPredictions = []; // Clear prediction history
         resetUI();
     }
 }
@@ -79,13 +83,58 @@ function startPredicting() {
                 // Only update if we are still on the webcam tab and streaming
                 const activeTab = document.querySelector('.tab-btn.active').dataset.tab;
                 if (data.emotion && isStreaming && activeTab === 'webcam-tab') {
-                    updateUI(data);
+                    // Apply confidence threshold and smoothing
+                    if (data.confidence >= CONFIDENCE_THRESHOLD) {
+                        // Add to recent predictions
+                        recentPredictions.push(data);
+                        if (recentPredictions.length > PREDICTION_HISTORY_SIZE) {
+                            recentPredictions.shift(); // Remove oldest
+                        }
+                        
+                        // Get smoothed prediction (most common emotion in recent history)
+                        const smoothedData = getSmoothedPrediction();
+                        updateUI(smoothedData);
+                    } else {
+                        // Low confidence - show as uncertain
+                        emotionText.innerText = "Uncertain";
+                        confidenceFill.style.width = `${data.confidence}%`;
+                        confidenceText.innerText = `${data.confidence}%`;
+                    }
                 }
             } catch (err) {
                 console.error("Prediction error:", err);
             }
         }, 'image/jpeg');
     }, 200); // Predict 5 times per second
+}
+
+function getSmoothedPrediction() {
+    // Count occurrences of each emotion in recent predictions
+    const emotionCounts = {};
+    let totalConfidence = 0;
+    
+    recentPredictions.forEach(pred => {
+        emotionCounts[pred.emotion] = (emotionCounts[pred.emotion] || 0) + 1;
+        totalConfidence += pred.confidence;
+    });
+    
+    // Find most common emotion
+    let maxCount = 0;
+    let dominantEmotion = recentPredictions[recentPredictions.length - 1].emotion;
+    
+    for (const [emotion, count] of Object.entries(emotionCounts)) {
+        if (count > maxCount) {
+            maxCount = count;
+            dominantEmotion = emotion;
+        }
+    }
+    
+    // Return smoothed prediction with averaged confidence
+    return {
+        emotion: dominantEmotion,
+        confidence: Math.round(totalConfidence / recentPredictions.length),
+        box: recentPredictions[recentPredictions.length - 1].box
+    };
 }
 
 function updateUI(data) {
@@ -173,57 +222,87 @@ clearBtn.addEventListener('click', (e) => {
     clearUpload();
 });
 
-// File Upload Prediction
+// File Upload Prediction with client-side optimization
 fileUpload.addEventListener('change', async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
+    emotionText.innerText = "Processing...";
+    confidenceFill.style.width = "0%";
+    confidenceText.innerText = "0%";
+
     // Show Preview
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
         imagePreview.src = e.target.result;
         imagePreviewContainer.style.display = 'flex';
         dropzone.style.display = 'none';
+
+        // Resize image on client side before sending to reduce payload
+        const img = new Image();
+        img.onload = async () => {
+            const canvas = document.createElement('canvas');
+            const MAX_SIZE = 800; // Max width/height
+            let width = img.width;
+            let height = img.height;
+
+            // Calculate new dimensions maintaining aspect ratio
+            if (width > height && width > MAX_SIZE) {
+                height = (height * MAX_SIZE) / width;
+                width = MAX_SIZE;
+            } else if (height > MAX_SIZE) {
+                width = (width * MAX_SIZE) / height;
+                height = MAX_SIZE;
+            }
+
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+
+            // Convert to blob with compression
+            canvas.toBlob(async (blob) => {
+                const formData = new FormData();
+                formData.append('image', blob, 'image.jpg');
+
+                emotionText.innerText = "Analyzing...";
+
+                try {
+                    const response = await fetch('/predict', {
+                        method: 'POST',
+                        body: formData
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Prediction failed');
+                    }
+
+                    const data = await response.json();
+
+                    if (data.error) {
+                        emotionText.innerText = "Model could not predict";
+                        confidenceFill.style.width = "0%";
+                        confidenceText.innerText = "0%";
+                    } else if (data.emotion === 'No Face Detected') {
+                        emotionText.innerText = "Model could not predict";
+                        confidenceFill.style.width = "0%";
+                        confidenceText.innerText = "0%";
+                    } else if (data.emotion) {
+                        updateUI(data);
+                    } else {
+                        emotionText.innerText = "Model could not predict";
+                    }
+                } catch (err) {
+                    console.error("Upload prediction error:", err);
+                    emotionText.innerText = "Model could not predict";
+                    confidenceFill.style.width = "0%";
+                    confidenceText.innerText = "0%";
+                }
+            }, 'image/jpeg', 0.85); // 85% quality compression
+        };
+        img.src = e.target.result;
     };
     reader.readAsDataURL(file);
-
-    // Predict
-    const formData = new FormData();
-    formData.append('image', file);
-
-    emotionText.innerText = "Analyzing...";
-    
-    try {
-        const response = await fetch('/predict', {
-            method: 'POST',
-            body: formData
-        });
-        
-        if (!response.ok) {
-            throw new Error('Prediction failed');
-        }
-        
-        const data = await response.json();
-        
-        if (data.error) {
-            emotionText.innerText = "Model could not predict";
-            confidenceFill.style.width = "0%";
-            confidenceText.innerText = "0%";
-        } else if (data.emotion === 'No Face Detected') {
-            emotionText.innerText = "Model could not predict";
-            confidenceFill.style.width = "0%";
-            confidenceText.innerText = "0%";
-        } else if (data.emotion) {
-            updateUI(data);
-        } else {
-            emotionText.innerText = "Model could not predict";
-        }
-    } catch (err) {
-        console.error("Upload prediction error:", err);
-        emotionText.innerText = "Model could not predict";
-        confidenceFill.style.width = "0%";
-        confidenceText.innerText = "0%";
-    }
 });
 
 // Click on preview to re-upload

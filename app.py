@@ -31,8 +31,16 @@ def predict():
         npimg = np.frombuffer(file, np.uint8)
         img = cv2.imdecode(npimg, cv2.IMREAD_COLOR)
         
+        # Resize if image is too large (faster face detection)
+        max_dimension = 800
+        height, width = img.shape[:2]
+        if max(height, width) > max_dimension:
+            scale = max_dimension / max(height, width)
+            img = cv2.resize(img, None, fx=scale, fy=scale, interpolation=cv2.INTER_AREA)
+        
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        faces = face_classifier.detectMultiScale(gray, 1.3, 5)
+        # Optimized parameters: larger scaleFactor and minNeighbors for faster detection
+        faces = face_classifier.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=3, minSize=(30, 30))
         
         if len(faces) == 0:
             return jsonify({'emotion': 'No Face Detected', 'confidence': 0})
@@ -40,6 +48,10 @@ def predict():
         # Take the first face found
         (x, y, w, h) = faces[0]
         roi_gray = gray[y:y+h, x:x+w]
+        
+        # Apply histogram equalization to normalize lighting (improves accuracy)
+        roi_gray = cv2.equalizeHist(roi_gray)
+        
         roi_gray = cv2.resize(roi_gray, (48, 48), interpolation=cv2.INTER_AREA)
         
         # Preprocess for model
